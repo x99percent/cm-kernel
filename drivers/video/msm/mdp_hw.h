@@ -47,19 +47,13 @@ struct mdp_info {
 	char * __iomem base;
 	int irq;
 	struct clk *clk;
-	struct clk *pclk;
 	struct clk *ebi1_clk;
 	struct mdp_out_interface out_if[MSM_MDP_NUM_INTERFACES];
-	int dma_format;
-	int dma_pack_pattern;
-	bool dma_format_dirty;
+	int format;
+	int pack_pattern;
+	bool dma_config_dirty;
 	struct mdp_blit_req *req;
-
-	int (*enable_irq)(struct mdp_info *mdp, uint32_t mask);
-	int (*disable_irq)(struct mdp_info *mdp, uint32_t mask);
 };
-
-void mdp_configure_dma_format(struct mdp_device *mdp_dev);
 
 extern int mdp_out_if_register(struct mdp_device *mdp_dev, int interface,
 			       void *private_data, uint32_t dma_mask,
@@ -70,15 +64,16 @@ extern int mdp_out_if_req_irq(struct mdp_device *mdp_dev, int interface,
 
 struct mdp_blit_req;
 struct mdp_device;
+int mdp_ppp_blit(const struct mdp_info *mdp, struct mdp_blit_req *req,
+		 struct file *src_file, unsigned long src_start,
+		 unsigned long src_len, struct file *dst_file,
+		 unsigned long dst_start, unsigned long dst_len);
 
-int mdp_hw_init(struct mdp_info *mdp);
-
-int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq);
+void mdp_ppp_dump_debug(const struct mdp_info *mdp);
 
 #define mdp_writel(mdp, value, offset) writel(value, mdp->base + offset)
 #define mdp_readl(mdp, offset) readl(mdp->base + offset)
 
-#if defined(CONFIG_MSM_MDP22)
 #define MDP_SYNC_CONFIG_0                (0x00000)
 #define MDP_SYNC_CONFIG_1                (0x00004)
 #define MDP_SYNC_CONFIG_2                (0x00008)
@@ -87,18 +82,6 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq);
 #define MDP_SYNC_STATUS_2                (0x00014)
 #define MDP_SYNC_THRESH_0                (0x00018)
 #define MDP_SYNC_THRESH_1                (0x0001c)
-#endif
-
-#if defined(CONFIG_MSM_MDP40)
-#define MDP_DISP_INTF_SEL                (0x00038)
-#define MDP_MAX_RD_PENDING_CMD_CONFIG    (0x0004c)
-#define MDP_INTR_ENABLE                  (0x00050)
-#define MDP_INTR_STATUS                  (0x00054)
-#define MDP_INTR_CLEAR                   (0x00058)
-#define MDP_EBI2_LCD0                    (0x00060)
-#define MDP_EBI2_LCD1                    (0x00064)
-#define MDP_EBI2_PORTMAP_MODE            (0x00070)
-#else
 #define MDP_INTR_ENABLE                  (0x00020)
 #define MDP_INTR_STATUS                  (0x00024)
 #define MDP_INTR_CLEAR                   (0x00028)
@@ -108,19 +91,17 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq);
 #define MDP_EBI2_LCD0                    (0x0003c)
 #define MDP_EBI2_LCD1                    (0x00040)
 #define MDP_EBI2_PORTMAP_MODE            (0x0005c)
-#endif
 
-#if defined(CONFIG_MSM_MDP22)
+#ifndef CONFIG_MSM_MDP31
 #define MDP_DISPLAY0_ADDR                (0x00054)
 #define MDP_DISPLAY1_ADDR                (0x00058)
 #define MDP_PPP_CMD_MODE                 (0x00060)
-#elif defined(CONFIG_MSM_MDP31)
+#else
 #define MDP_DISPLAY0_ADDR                (0x10000)
 #define MDP_DISPLAY1_ADDR                (0x10004)
 #define MDP_PPP_CMD_MODE                 (0x10060)
 #endif
 
-#if defined(CONFIG_MSM_MDP22)
 #define MDP_TV_OUT_STATUS                (0x00064)
 #define MDP_HW_VERSION                   (0x00070)
 #define MDP_SW_RESET                     (0x00074)
@@ -130,20 +111,8 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq);
 #define MDP_SECONDARY_VSYNC_OUT_CTRL     (0x00084)
 #define MDP_EXTERNAL_VSYNC_OUT_CTRL      (0x00088)
 #define MDP_VSYNC_CTRL                   (0x0008c)
-#endif
-
-#if defined(CONFIG_MSM_MDP31) || defined(CONFIG_MSM_MDP40)
 #define MDP_MDDI_PARAM_WR_SEL            (0x00090)
 #define MDP_MDDI_PARAM                   (0x00094)
-#define MDP_MDDI_DATA_XFR                (0x00098)
-#endif
-
-#if defined(CONFIG_MSM_MDP40)
-#define MDP_LAYERMIXER_IN_CFG            (0x10100)
-#define MDP_OVERLAYPROC0_CFG             (0x10004)
-#define MDP_OVERLAYPROC1_CFG             (0x18004)
-#endif
-
 #define MDP_CGC_EN                       (0x00100)
 #define MDP_CMD_STATUS                   (0x10008)
 #define MDP_PROFILE_EN                   (0x10010)
@@ -259,46 +228,36 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq);
 #define MDP_TEST_CAPTURED_DCLK           (0xd0210)
 #define MDP_TEST_MISR_CAPT_VAL_DCLK      (0xd0214)
 
+#define MDP_DMA_P_START                  (0x00044)
 #define MDP_DMA_P_CONFIG                 (0x90000)
 #define MDP_DMA_P_SIZE                   (0x90004)
 #define MDP_DMA_P_IBUF_ADDR              (0x90008)
 #define MDP_DMA_P_IBUF_Y_STRIDE          (0x9000c)
 #define MDP_DMA_P_OUT_XY                 (0x90010)
-
-#ifdef CONFIG_MSM_MDP40
-#define MDP_DMA_P_START                  (0x0000c)
-#define MDP_DMA_P_FETCH_CFG              (0x91004)
-#define MDP_DMA_P_HIST_INTR_STATUS       (0x95014)
-#define MDP_DMA_P_HIST_INTR_CLEAR        (0x95018)
-#define MDP_DMA_P_HIST_INTR_ENABLE       (0x9501C)
-#else
-#define MDP_DMA_P_START                  (0x00044)
 #define MDP_DMA_P_COLOR_CORRECT_CONFIG   (0x90070)
-#endif
 
-#if defined(CONFIG_MSM_MDP31)
-#define MDP_LCDC_BASE                    (0xe0000)
-#elif defined(CONFIG_MSM_MDP40)
-#define MDP_LCDC_BASE                    (0xc0000)
-#endif
+#define MDP_DMA_S_START                  (0x00048)
+#define MDP_DMA_S_CONFIG                 (0xa0000)
+#define MDP_DMA_S_SIZE                   (0xa0004)
+#define MDP_DMA_S_IBUF_ADDR              (0xa0008)
+#define MDP_DMA_S_IBUF_Y_STRIDE          (0xa000c)
+#define MDP_DMA_S_OUT_XY                 (0xa0010)
 
-#ifdef MDP_LCDC_BASE
-#define MDP_LCDC_EN                      (MDP_LCDC_BASE + 0x00)
-#define MDP_LCDC_HSYNC_CTL               (MDP_LCDC_BASE + 0x04)
-#define MDP_LCDC_VSYNC_PERIOD            (MDP_LCDC_BASE + 0x08)
-#define MDP_LCDC_VSYNC_PULSE_WIDTH       (MDP_LCDC_BASE + 0x0c)
-#define MDP_LCDC_DISPLAY_HCTL            (MDP_LCDC_BASE + 0x10)
-#define MDP_LCDC_DISPLAY_V_START         (MDP_LCDC_BASE + 0x14)
-#define MDP_LCDC_DISPLAY_V_END           (MDP_LCDC_BASE + 0x18)
-#define MDP_LCDC_ACTIVE_HCTL             (MDP_LCDC_BASE + 0x1c)
-#define MDP_LCDC_ACTIVE_V_START          (MDP_LCDC_BASE + 0x20)
-#define MDP_LCDC_ACTIVE_V_END            (MDP_LCDC_BASE + 0x24)
-#define MDP_LCDC_BORDER_CLR              (MDP_LCDC_BASE + 0x28)
-#define MDP_LCDC_UNDERFLOW_CTL           (MDP_LCDC_BASE + 0x2c)
-#define MDP_LCDC_HSYNC_SKEW              (MDP_LCDC_BASE + 0x30)
-#define MDP_LCDC_TEST_CTL                (MDP_LCDC_BASE + 0x34)
-#define MDP_LCDC_CTL_POLARITY            (MDP_LCDC_BASE + 0x38)
-#endif
+#define MDP_LCDC_EN                      (0xe0000)
+#define MDP_LCDC_HSYNC_CTL               (0xe0004)
+#define MDP_LCDC_VSYNC_PERIOD            (0xe0008)
+#define MDP_LCDC_VSYNC_PULSE_WIDTH       (0xe000c)
+#define MDP_LCDC_DISPLAY_HCTL            (0xe0010)
+#define MDP_LCDC_DISPLAY_V_START         (0xe0014)
+#define MDP_LCDC_DISPLAY_V_END           (0xe0018)
+#define MDP_LCDC_ACTIVE_HCTL             (0xe001c)
+#define MDP_LCDC_ACTIVE_V_START          (0xe0020)
+#define MDP_LCDC_ACTIVE_V_END            (0xe0024)
+#define MDP_LCDC_BORDER_CLR              (0xe0028)
+#define MDP_LCDC_UNDERFLOW_CTL           (0xe002c)
+#define MDP_LCDC_HSYNC_SKEW              (0xe0030)
+#define MDP_LCDC_TEST_CTL                (0xe0034)
+#define MDP_LCDC_CTL_POLARITY            (0xe0038)
 
 #define MDP_PPP_SCALE_STATUS             (0x50000)
 #define MDP_PPP_BLEND_STATUS             (0x70000)
@@ -310,13 +269,14 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq);
 #define DL0_ROI_DONE			(1<<0)
 #define TV_OUT_DMA3_DONE		(1<<6)
 #define TV_ENC_UNDERRUN			(1<<7)
+#define TV_OUT_FRAME_START		(1<<13)
 
-#if defined(CONFIG_MSM_MDP40)
-#define MDP_DMA_P_DONE			(1 << 4)
-#elif defined(CONFIG_MSM_MDP22)
+#ifdef CONFIG_MSM_MDP22
 #define MDP_DMA_P_DONE			(1 << 2)
-#elif defined(CONFIG_MSM_MDP31)
+#define MDP_DMA_S_DONE			(1 << 3)
+#else /* CONFIG_MSM_MDP31 */
 #define MDP_DMA_P_DONE			(1 << 14)
+#define MDP_DMA_S_DONE			(1 << 2)
 #define MDP_LCDC_UNDERFLOW		(1 << 16)
 #define MDP_LCDC_FRAME_START		(1 << 15)
 #endif
@@ -813,7 +773,8 @@ int mdp_wait(struct mdp_info *mdp, uint32_t mask, wait_queue_head_t *wq);
 #endif
 
 /* MDDI REGISTER ? */
-#define MDDI_VDO_PACKET_DESC  0x5666
+#define MDDI_VDO_PACKET_DESC_RGB565  0x5565
+#define MDDI_VDO_PACKET_DESC_RGB666  0x5666
 #define MDDI_VDO_PACKET_PRIM  0xC3
 #define MDDI_VDO_PACKET_SECD  0xC0
 

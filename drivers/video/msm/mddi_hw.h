@@ -53,7 +53,6 @@
 #define MDDI_MF_CNT             0x0084
 #define MDDI_CURR_REV_PTR       0x0088
 #define MDDI_CORE_VER           0x008c
-#define MDDI_FIFO_ALLOC         0x0090
 #define MDDI_PAD_IO_CTL         0x00a0
 #define MDDI_PAD_CAL            0x00a4
 
@@ -115,6 +114,7 @@
 #define MDDI_CMD_LINK_ACTIVE         0x0900
 #define MDDI_CMD_PERIODIC_REV_ENCAP  0x0A00
 #define MDDI_CMD_FORCE_NEW_REV_PTR   0x0C00
+#define MDDI_CMD_SKEW_CALIBRATION    0x0D00
 
 
 
@@ -129,14 +129,14 @@
  * significantly increasing latency of waiting for next subframe */
 #define MDDI_HOST_BYTES_PER_SUBFRAME  0x3C00
 
-#if defined(CONFIG_MSM_MDP31) || defined(CONFIG_MSM_MDP40)
+#ifdef CONFIG_MACH_SUPERSONIC
+// XXX: This should not be device-specific, but config-based
 #define MDDI_HOST_TA2_LEN       0x001a
 #define MDDI_HOST_REV_RATE_DIV  0x0004
 #else
 #define MDDI_HOST_TA2_LEN       0x000c
 #define MDDI_HOST_REV_RATE_DIV  0x0002
 #endif
-
 
 struct __attribute__((packed)) mddi_rev_packet {
 	uint16_t length;
@@ -293,7 +293,10 @@ struct __attribute__((packed)) mddi_register_access {
 
 	uint16_t crc16;
 
-	uint32_t register_data_list;
+	union {
+		uint32_t reg_data;
+		uint32_t *reg_data_list;
+	} u;
 	/* list of 4-byte register data values for/from client registers */
 };
 

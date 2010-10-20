@@ -6,30 +6,15 @@ config FB_MSM
 	select FB_CFB_IMAGEBLIT
 	default y
 
-config FB_MSM_LEGACY_MDP
-	bool
-	depends on FB_MSM && (MSM_MDP31 || MSM_MDP22)
-	default y
-
-config FB_MSM_MDP_PPP
-	bool
-	depends on FB_MSM_LEGACY_MDP
-	default y
-
 config FB_MSM_LCDC
 	bool "Support for integrated LCD controller in qsd8x50"
 	depends on FB_MSM && MSM_MDP31
 	default y
 
-config FB_MSM_MDDI
-	bool "Support for MSM MDDI controllers"
-	depends on FB_MSM
-	default y
-
 config GPU_MSM_KGSL
-	tristate "MSM 3D Graphics driver for Adreno class GPUs"
+	tristate "MSM 3D Graphics driver for QSD8x50 and MSM7x27"
 	default n
-	depends on FB_MSM && (ARCH_QSD8X50 || ARCH_MSM7X30)
+	depends on FB_MSM && ARCH_QSD8X50
 	select GENERIC_ALLOCATOR
 	select CONFIG_FW_LOADER
 	help
@@ -44,3 +29,8 @@ config MSM_KGSL_MMU
 	help
 	  If enabled, the GPU driver will allocate memory from vmalloc
 	  and enable the use of GPU MMU, instead of using pmem.
+
+config MSM_HDMI
+	bool "Support for HDMI in QCT platform"
+	depends on MSM_MDP31
+	default n
