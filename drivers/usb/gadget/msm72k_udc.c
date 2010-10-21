@@ -66,6 +66,7 @@ static const char *const ep_name[] = {
 	"ep12in", "ep13in", "ep14in", "ep15in"
 };
 
+static struct usb_info *the_usb_info;
 /* current state of VBUS */
 static int vbus;
 
@@ -123,6 +124,13 @@ static void usb_do_work(struct work_struct *w);
 #define USB_FLAG_VBUS_ONLINE    0x0002
 #define USB_FLAG_VBUS_OFFLINE   0x0004
 #define USB_FLAG_RESET          0x0008
+
+enum usb_connect_type {
+	CONNECT_TYPE_NONE = 0,
+	CONNECT_TYPE_USB,
+	CONNECT_TYPE_AC,
+	CONNECT_TYPE_UNKNOWN,
+};
 
 struct usb_info {
 	/* lock for register/queue/device state changes */
@@ -185,6 +193,7 @@ struct usb_info {
 	u16 test_mode;
 
 	u8 remote_wakeup;
+	enum usb_connect_type connect_type;
 };
 
 static const struct usb_ep_ops msm72k_ep_ops;
@@ -193,6 +202,43 @@ static const struct usb_ep_ops msm72k_ep_ops;
 static int msm72k_pullup(struct usb_gadget *_gadget, int is_active);
 static int msm72k_set_halt(struct usb_ep *_ep, int value);
 static void flush_endpoint(struct msm_endpoint *ept);
+static DEFINE_MUTEX(notify_sem);
+static void send_usb_connect_notify(struct work_struct *w)
+{
+	static struct t_usb_status_notifier *notifier;
+	struct usb_info *ui = container_of(w, struct usb_info,
+		work);
+	if (!ui)
+		return;
+
+	printk(KERN_INFO "usb: send connect type %d\n", ui->connect_type);
+	mutex_lock(&notify_sem);
+	list_for_each_entry(notifier,
+		&g_lh_usb_notifier_list,
+		notifier_link) {
+			if (notifier->func != NULL) {
+				/* Notify other drivers about connect type. */
+				/* use slow charging for unknown type*/
+				if (ui->connect_type == CONNECT_TYPE_UNKNOWN)
+					notifier->func(CONNECT_TYPE_USB);
+				else
+					notifier->func(ui->connect_type);
+			}
+		}
+	mutex_unlock(&notify_sem);
+}
+
+int usb_register_notifier(struct t_usb_status_notifier *notifier)
+{
+	if (!notifier || !notifier->name || !notifier->func)
+		return -EINVAL;
+
+	mutex_lock(&notify_sem);
+	list_add(&notifier->notifier_link,
+		&g_lh_usb_notifier_list);
+	mutex_unlock(&notify_sem);
+	return 0;
+}
 
 static int usb_ep_get_stall(struct msm_endpoint *ept)
 {
@@ -960,6 +1006,14 @@ static irqreturn_t usb_interrupt(int irq, void *data)
 	}
 	return IRQ_HANDLED;
 }
+
+int usb_get_connect_type(void)
+{
+	if (!the_usb_info)
+		return 0;
+	return the_usb_info->connect_type;
+}
+EXPORT_SYMBOL(usb_get_connect_type);
 
 static void usb_prepare(struct usb_info *ui)
 {

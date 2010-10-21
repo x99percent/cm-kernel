@@ -1048,10 +1048,10 @@ static int atmel_ts_probe(struct i2c_client *client,
 				ts->GCAF_sample = ts->config_setting[ts->status].config_T28[4];
 			}
 		}
-#if 0
-///fix me!! TODO		if (usb_get_connect_type())
+
+		if (usb_get_connect_type())
 			ts->status = 1;
-#endif
+
 		if (!CRC_check) {
 			printk(KERN_INFO "Touch: Config reload\n");
 
@@ -1213,7 +1213,7 @@ static int atmel_ts_probe(struct i2c_client *client,
 	dev_info(&client->dev, "Start touchscreen %s in interrupt mode\n",
 			ts->input_dev->name);
 
-//fix me TODO	usb_register_notifier(&cable_status_handler);
+	usb_register_notifier(&cable_status_handler);
 
 	return 0;
 
