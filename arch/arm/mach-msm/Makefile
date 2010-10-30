@@ -74,6 +74,7 @@ obj-$(CONFIG_MACH_SUPERSONIC) += drv_callback.o
 obj-$(CONFIG_MACH_SUPERSONIC) += htc_wifi_nvs.o htc_bluetooth.o
 obj-$(CONFIG_MACH_SUPERSONIC) += htc_acoustic_qsd.o
 obj-$(CONFIG_MACH_SUPERSONIC) += devices_htc.o
+obj-$(CONFIG_MICROP_COMMON) += atmega_microp_common.o
 obj-$(CONFIG_HTC_BATTCHG) += htc_battery.o
 
 obj-$(CONFIG_HTC_PWRSINK) += htc_pwrsink.o
