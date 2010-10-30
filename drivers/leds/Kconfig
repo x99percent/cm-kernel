@@ -309,6 +309,12 @@ config LEDS_MC13783
 	  This option enable support for on-chip LED drivers found
 	  on Freescale Semiconductor MC13783 PMIC.
 
+config MICROP_COMMON
+	tristate "LED Support for Microp"
+	depends on I2C
+	help
+	  HTC LED-Microp support.
+
 config LEDS_TRIGGERS
 	bool "LED Trigger support"
 	help
