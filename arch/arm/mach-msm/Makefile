@@ -73,15 +73,20 @@ obj-$(CONFIG_MACH_SUPERSONIC) += board-supersonic-smb329.o
 obj-$(CONFIG_MACH_SUPERSONIC) += drv_callback.o
 obj-$(CONFIG_MACH_SUPERSONIC) += htc_wifi_nvs.o htc_bluetooth.o
 obj-$(CONFIG_MACH_SUPERSONIC) += htc_acoustic_qsd.o
+obj-$(CONFIG_MACH_SUPERSONIC) += msm_vibrator.o
 obj-$(CONFIG_MACH_SUPERSONIC) += devices_htc.o
+obj-$(CONFIG_MACH_SUPERSONIC) += drv_callback.o
 obj-$(CONFIG_MICROP_COMMON) += atmega_microp_common.o
 obj-$(CONFIG_HTC_BATTCHG) += htc_battery.o
 
 obj-$(CONFIG_HTC_PWRSINK) += htc_pwrsink.o
 obj-$(CONFIG_HTC_PWRSPLY) += htc_power_supply.o
-obj-$(CONFIG_HTC_HEADSET) += htc_headset.o
-obj-$(CONFIG_HTC_AUDIO_JACK) += htc_audio_jack.o
-obj-$(CONFIG_HTC_35MM_JACK) += htc_35mm_jack.o
+obj-$(CONFIG_HTC_HEADSET_MGR) += htc_headset_mgr.o
+obj-$(CONFIG_HTC_HEADSET_H2W) += htc_headset_h2w.o
+obj-$(CONFIG_HTC_HEADSET_GPIO) += htc_headset_gpio.o
+obj-$(CONFIG_HTC_HEADSET_MICROP) += htc_headset_microp.o
+obj-$(CONFIG_HTC_HEADSET_PMIC) += htc_headset_pmic.o
+
 obj-$(CONFIG_ARCH_MSM_FLASHLIGHT) += msm_flashlight.o
 
 obj-$(CONFIG_MACH_MAHIMAHI) += board-mahimahi-tpa2018d1.o
