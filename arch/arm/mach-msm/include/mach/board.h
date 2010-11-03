@@ -106,6 +106,8 @@ struct msm_camera_sensor_info {
         uint32_t kpi_sensor_end;
         int flash_type; /* for back support */
         struct camera_flash_cfg* flash_cfg;
+	int (*camera_power_on)(void);
+	int (*camera_power_off)(void);
 };
 #endif
 

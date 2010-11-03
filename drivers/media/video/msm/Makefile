@@ -1,6 +1,8 @@
 obj-$(CONFIG_MT9T013) += mt9t013.o mt9t013_reg.o
 obj-$(CONFIG_MT9D112) += mt9d112.o mt9d112_reg.o
 obj-$(CONFIG_MT9P012) += mt9p012_fox.o mt9p012_reg.o
+obj-$(CONFIG_OV9665) += ov9665.o ov9665_reg.o
+obj-$(CONFIG_OV8810) += ov8810.o
 ifeq ($(CONFIG_MSM_CAMERA_OLD),y)
 obj-$(CONFIG_MSM_CAMERA) += msm_camera_old.o
 obj-$(CONFIG_ARCH_MSM7X00A) += msm_vfe7x_old.o msm_io7x.o

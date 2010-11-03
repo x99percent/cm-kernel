@@ -56,3 +56,17 @@ config S5K3E2FX
 	depends on MSM_CAMERA
 	---help---
 	  Samsung 5M with Autofocus
+
+config OV8810
+	bool "Sensor ov8810"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OmniVision 8M Bayer Sensor
+
+config OV9665
+	bool "Sensor ov9665"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OmniVision 3M YUV Sensor
