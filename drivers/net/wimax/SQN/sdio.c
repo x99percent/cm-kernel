@@ -1624,8 +1624,7 @@ static struct sdio_driver sqn_sdio_driver = {
 	, .id_table	= sqn_sdio_ids
 	, .probe	= sqn_sdio_probe
 	, .remove	= sqn_sdio_remove
-#if 0
-def ANDROID_KERNEL
+#ifdef ANDROID_KERNEL
 	, .suspend 	= sqn_sdio_suspend
 	, .resume	= sqn_sdio_resume
 #endif
