@@ -884,7 +884,7 @@ void mmc_set_timing(struct mmc_host *host, unsigned int timing)
  * If a host does all the power sequencing itself, ignore the
  * initial MMC_POWER_UP stage.
  */
-static void mmc_power_up(struct mmc_host *host)
+void mmc_power_up(struct mmc_host *host)
 {
 	int bit;
 
@@ -924,8 +924,9 @@ static void mmc_power_up(struct mmc_host *host)
 	 */
 	mmc_delay(10);
 }
+EXPORT_SYMBOL(mmc_power_up);
 
-static void mmc_power_off(struct mmc_host *host)
+void mmc_power_off(struct mmc_host *host)
 {
 	host->ios.clock = 0;
 	host->ios.vdd = 0;
@@ -938,6 +939,8 @@ static void mmc_power_off(struct mmc_host *host)
 	host->ios.timing = MMC_TIMING_LEGACY;
 	mmc_set_ios(host);
 }
+
+EXPORT_SYMBOL(mmc_power_off);
 
 /*
  * Cleanup when the last reference to the bus operator is dropped.
@@ -996,14 +999,19 @@ int mmc_resume_bus(struct mmc_host *host)
 		mmc_power_up(host);
 		BUG_ON(!host->bus_ops->resume);
 		host->bus_ops->resume(host);
+		if (mmc_bus_fails_resume(host))
+			goto end;
 	}
 
 	if (host->bus_ops->detect && !host->bus_dead)
 		host->bus_ops->detect(host);
 
+end:
 	mmc_bus_put(host);
-	printk("%s: Deferred resume completed\n", mmc_hostname(host));
-	return 0;
+	host->bus_resume_flags &= ~MMC_BUSRESUME_NEEDS_RESUME;
+	printk(KERN_INFO "%s: Deferred resume %s\n", mmc_hostname(host),
+			mmc_bus_fails_resume(host) ? "failed" : "completed");
+        return 0;
 }
 
 EXPORT_SYMBOL(mmc_resume_bus);
@@ -1090,6 +1098,9 @@ void mmc_rescan(struct work_struct *work)
 	int err;
 	unsigned long flags;
 	int extend_wakelock = 0;
+#ifdef CONFIG_MMC_PARANOID_SD_INIT
+	int retries = 2;
+#endif
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -1135,6 +1146,7 @@ void mmc_rescan(struct work_struct *work)
 	if (host->ops->get_cd && host->ops->get_cd(host) == 0)
 		goto out;
 
+retry:
 	mmc_claim_host(host);
 
 	mmc_power_up(host);
@@ -1180,8 +1192,17 @@ void mmc_rescan(struct work_struct *work)
 	mmc_power_off(host);
 
 out:
+#ifdef CONFIG_MMC_PARANOID_SD_INIT
+	if (err && (err != -ENOMEDIUM) && retries) {
+		printk(KERN_INFO "%s: Re-scan card rc = %d (retries = %d)\n",
+			mmc_hostname(host), err, retries);
+		retries--;
+		goto retry;
+	}
+#endif
+
 	if (extend_wakelock)
-		wake_lock_timeout(&mmc_delayed_work_wake_lock, HZ / 2);
+		wake_lock_timeout(&mmc_delayed_work_wake_lock, 5 * HZ);
 	else
 		wake_unlock(&mmc_delayed_work_wake_lock);
 
@@ -1309,6 +1330,7 @@ EXPORT_SYMBOL(mmc_card_can_sleep);
 /**
  *	mmc_suspend_host - suspend a host
  *	@host: mmc host
+ *	@state: suspend mode (PM_SUSPEND_xxx)
  */
 int mmc_suspend_host(struct mmc_host *host, pm_message_t state)
 {
@@ -1375,10 +1397,22 @@ int mmc_resume_host(struct mmc_host *host)
 			printk(KERN_WARNING "%s: error %d during resume "
 					    "(card was removed?)\n",
 					    mmc_hostname(host), err);
+			if (host->bus_ops->remove)
+				host->bus_ops->remove(host);
+			mmc_claim_host(host);
+			mmc_detach_bus(host);
+			mmc_release_host(host);
+			/* no need to bother upper layers */
 			err = 0;
 		}
 	}
 	mmc_bus_put(host);
+
+	/*
+	 * We add a slight delay here so that resume can progress
+	 * in parallel.
+	 */
+	mmc_detect_change(host, 1);
 
 	return err;
 }

@@ -17,11 +17,15 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
+#include <linux/kthread.h>
 
 #include "core.h"
 #include "bus.h"
 #include "mmc_ops.h"
 #include "sd_ops.h"
+
+extern void mmc_power_up(struct mmc_host *host);
+extern void mmc_power_off(struct mmc_host *host);
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -555,6 +559,36 @@ static void mmc_sd_remove(struct mmc_host *host)
 }
 
 /*
+ * When "deferred resume" fails, run another thread to stop mmcqd.
+ */
+static int mmc_sd_removal_thread(void *d)
+{
+	struct mmc_host *host = d;
+
+	mmc_sd_remove(host);
+
+	mmc_claim_host(host);
+	mmc_detach_bus(host);
+	mmc_release_host(host);
+
+	return 0;
+}
+
+static void mmc_sd_err_with_deferred_resume(struct mmc_host *host)
+{
+	if (mmc_bus_needs_resume(host)) {
+		host->bus_resume_flags |= MMC_BUSRESUME_FAILS_RESUME;
+		kthread_run(mmc_sd_removal_thread, host, "mmcrd");
+	} else {
+		mmc_sd_remove(host);
+
+		mmc_claim_host(host);
+		mmc_detach_bus(host);
+		mmc_release_host(host);
+	}
+}
+
+/*
  * Card detection callback from host.
  */
 static void mmc_sd_detect(struct mmc_host *host)
@@ -642,7 +676,9 @@ static int mmc_sd_resume(struct mmc_host *host)
 		if (err) {
 			printk(KERN_ERR "%s: Re-init card rc = %d (retries = %d)\n",
 			       mmc_hostname(host), err, retries);
+			mmc_power_off(host);
 			mdelay(5);
+			mmc_power_up(host);
 			retries--;
 			continue;
 		}
@@ -652,6 +688,19 @@ static int mmc_sd_resume(struct mmc_host *host)
 	err = mmc_sd_init_card(host, host->ocr, host->card);
 #endif
 	mmc_release_host(host);
+
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	if (err)
+		mmc_sd_err_with_deferred_resume(host);
+#else
+	if (err) {
+		mmc_sd_remove(host);
+
+		mmc_claim_host(host);
+		mmc_detach_bus(host);
+		mmc_release_host(host);
+	}
+#endif
 
 	return err;
 }
