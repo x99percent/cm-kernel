@@ -132,6 +132,7 @@ int64_t msm_timer_enter_idle(void);
 void msm_timer_exit_idle(int low_power);
 int msm_irq_idle_sleep_allowed(void);
 int msm_irq_pending(void);
+int clks_allow_tcxo_locked_debug(void);
 int clks_print_running(void);
 extern int board_mfg_mode(void);
 
@@ -373,7 +374,7 @@ static int msm_sleep(int sleep_mode, uint32_t sleep_delay, int from_idle)
 		}
 		if ((!from_idle && (msm_pm_debug_mask & MSM_PM_DEBUG_CLOCK_VOTE)) ||
 			(from_idle && (msm_pm_debug_mask & MSM_PM_DEBUG_IDLE)))
-			clks_print_running();
+			clks_allow_tcxo_locked_debug();
 
 		ret = smsm_change_state(PM_SMSM_WRITE_STATE, PM_SMSM_WRITE_RUN, enter_state);
 		if (ret) {
