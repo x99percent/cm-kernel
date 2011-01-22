@@ -294,27 +294,39 @@ static struct platform_device supersonic_leds = {
 static int supersonic_phy_init_seq[] = { 0xC, 0x31, 0x30, 0x32, 0x1D, 0x0D, 0x1D, 0x10, -1 };
 
 
-// USB cable out: supersonic_uart_usb_switch(1)
-// USB cable in: supersonic_uart_usb_switch(0)
+/* 2 : wimax UART, 1 : CPU uart, 0 : usb
+CPU_WIMAX_SW -> GPIO160
+USB_UART#_SW -> GPIO33
+
+XA : GPIO33 = 0 -> USB
+    GPIO33 = 1 -> CPU UART
+
+XB : GPIO33 = 0 -> USB
+    GPIO33 = 1 , GPIO160 = 0 -> CPU UART     // SUPERSONIC_WIMAX_CPU_UARTz_SW (GPIO160)
+    GPIO33 = 1 , GPIO160 = 1 -> Wimax UART   // SUPERSONIC_USB_UARTz_SW (GPIO33)
+*/
+
+/*
+ * USB cable out: supersonic_uart_usb_switch(1)
+ * USB cable in: supersonic_uart_usb_switch(0)
+ */
 static void supersonic_uart_usb_switch(int uart)
 {
-		printk(KERN_INFO "%s:uart:%d\n", __func__, uart);
-		gpio_set_value(SUPERSONIC_USB_UARTz_SW, uart?1:0); // XA and for USB cable in to reset wimax UART
+	printk(KERN_INFO "%s:uart:%d\n", __func__, uart); 
+	/* XA and for USB cable in to reset wimax UART */
+	gpio_set_value(SUPERSONIC_USB_UARTz_SW, uart?1:0);
 
-		if(system_rev && uart) // XB
-		{
-				if (gpio_get_value(SUPERSONIC_WIMAX_CPU_UARTz_SW))	// Wimax UART
-			{
-						printk(KERN_INFO "%s:Wimax UART\n", __func__);
-						gpio_set_value(SUPERSONIC_USB_UARTz_SW,1);
-						gpio_set_value(SUPERSONIC_WIMAX_CPU_UARTz_SW,1);
-				}
-				else // USB, CPU UART
-				{
-						printk(KERN_INFO "%s:Non wimax UART\n", __func__);
-						gpio_set_value(SUPERSONIC_WIMAX_CPU_UARTz_SW, uart==2?1:0);
-				}
+	if (system_rev && uart) {/* XB */
+		/* Winmax uart */
+		if (gpio_get_value(SUPERSONIC_WIMAX_CPU_UARTz_SW)) {
+			printk(KERN_INFO "%s:Wimax UART\n", __func__);
+			gpio_set_value(SUPERSONIC_USB_UARTz_SW,1);
+			gpio_set_value(SUPERSONIC_WIMAX_CPU_UARTz_SW,1);
+		} else {/* USB, CPU UART */
+			printk(KERN_INFO "%s:Non wimax UART\n", __func__);
+			gpio_set_value(SUPERSONIC_WIMAX_CPU_UARTz_SW, uart==2?1:0);
 		}
+	}
 }
 
 extern void msm_hsusb_8x50_phy_reset(void);
@@ -448,20 +460,6 @@ static struct platform_device android_usb_device = {
 		.platform_data = &android_usb_pdata,
 	},
 };
-
-
-/* 2 : wimax UART, 1 : CPU uart, 0 : usb
-CPU_WIMAX_SW -> GPIO160
-USB_UART#_SW -> GPIO33
-
-XA : GPIO33 = 0 -> USB
-	GPIO33 = 1 -> CPU UART
-
-XB : GPIO33 = 0 -> USB
-	GPIO33 = 1 , GPIO160 = 0 -> CPU UART	 // SUPERSONIC_WIMAX_CPU_UARTz_SW (GPIO160)
-	GPIO33 = 1 , GPIO160 = 1 -> Wimax UART	 // SUPERSONIC_USB_UARTz_SW (GPIO33)
-*/
-
 
 static struct platform_device supersonic_rfkill = {
 	.name = "supersonic_rfkill",

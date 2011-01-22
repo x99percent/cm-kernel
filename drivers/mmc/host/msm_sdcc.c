@@ -56,7 +56,7 @@
 	pr_debug("%s: %s: " fmt "\n", mmc_hostname(host->mmc), __func__ , args)
 
 #define IRQ_DEBUG 0
-#define DISABLE_WIMAX_BUSCLK_PWRSAVE 1
+#define DISABLE_WIMAX_BUSCLK_PWRSAVE 0
 
 #if defined(CONFIG_DEBUG_FS)
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *);
@@ -92,6 +92,8 @@ static unsigned long msmsdcc_irqtime;
 
 #ifdef CONFIG_WIMAX
 extern int mmc_wimax_get_status(void);
+//extern int mmc_wimax_get_busclk_pwrsave(void);
+extern void mmc_wimax_enable_host_wakeup(int on);
 #else
 static int mmc_wimax_get_status(void) { return 0; }
 #endif
@@ -158,12 +160,26 @@ msmsdcc_disable_clocks(struct msmsdcc_host *host, int deferr)
 	} else {
 		del_timer_sync(&host->busclk_timer);
 		if (host->clks_on) {
+#ifdef CONFIG_WIMAX
+				mmc_wimax_enable_host_wakeup(1);
+#endif
 			clk_disable(host->clk);
 			clk_disable(host->pclk);
 			host->clks_on = 0;
 		}
 	}
 }
+EXPORT_SYMBOL(msmsdcc_disable_clocks);
+
+int
+msmsdcc_get_sdc_clocks(struct msmsdcc_host *host)
+{
+	if (host->clks_on)
+		return 1;
+	else 
+		return 0;
+}
+EXPORT_SYMBOL(msmsdcc_get_sdc_clocks);
 
 static void
 msmsdcc_busclk_expired(unsigned long _data)
@@ -188,6 +204,9 @@ msmsdcc_enable_clocks(struct msmsdcc_host *host)
 	del_timer_sync(&host->busclk_timer);
 
 	if (!host->clks_on) {
+#ifdef CONFIG_WIMAX
+            mmc_wimax_enable_host_wakeup(0);
+#endif
 		rc = clk_enable(host->pclk);
 		if (rc)
 			return rc;
@@ -234,7 +253,7 @@ static void
 msmsdcc_start_command(struct msmsdcc_host *host, struct mmc_command *cmd,
 		      u32 c);
 
-static void
+void
 msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 {
 	BUG_ON(host->curr.data);
@@ -258,13 +277,15 @@ msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 	mmc_request_done(host->mmc, mrq);
 	spin_lock(&host->lock);
 }
+EXPORT_SYMBOL(msmsdcc_request_end);
 
-static void
+void
 msmsdcc_stop_data(struct msmsdcc_host *host)
 {
 	host->curr.data = NULL;
 	host->curr.got_dataend = 0;
 }
+EXPORT_SYMBOL(msmsdcc_stop_data);
 
 uint32_t msmsdcc_fifo_addr(struct msmsdcc_host *host)
 {
